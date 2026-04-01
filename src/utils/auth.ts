@@ -11,19 +11,14 @@ import {
 } from 'src/services/analytics/index.js'
 import { getModelStrings } from 'src/utils/model/modelStrings.js'
 import { getAPIProvider } from 'src/utils/model/providers.js'
-import {
-  getIsNonInteractiveSession,
-  preferThirdPartyAuthentication,
-} from '../bootstrap/state.js'
-import {
-  getMockSubscriptionType,
-  shouldUseMockSubscription,
-} from '../services/mockRateLimits.js'
+import { getIsNonInteractiveSession, preferThirdPartyAuthentication } from '../bootstrap/state.js'
+import { getMockSubscriptionType, shouldUseMockSubscription } from '../services/mockRateLimits.js'
 import {
   isOAuthTokenExpired,
   refreshOAuthToken,
   shouldUseClaudeAIAuth,
 } from '../services/oauth/client.js'
+import type { CodexTokens } from '../services/oauth/codex-client.js'
 import { getOauthProfileFromOauthToken } from '../services/oauth/getOauthProfile.js'
 import type { OAuthTokens, SubscriptionType } from '../services/oauth/types.js'
 import {
@@ -34,11 +29,7 @@ import {
   maybeRemoveApiKeyFromMacOSKeychainThrows,
   normalizeApiKeyForConfig,
 } from './authPortable.js'
-import {
-  checkStsCallerIdentity,
-  clearAwsIniCache,
-  isValidAwsStsOutput,
-} from './aws.js'
+import { checkStsCallerIdentity, clearAwsIniCache, isValidAwsStsOutput } from './aws.js'
 import { AwsAuthStatusManager } from './awsAuthStatusManager.js'
 import { clearBetasCaches } from './betas.js'
 import {
@@ -69,10 +60,7 @@ import {
   getMacOsKeychainStorageServiceName,
   getUsername,
 } from './secureStorage/macOsKeychainHelpers.js'
-import {
-  getSettings_DEPRECATED,
-  getSettingsForSource,
-} from './settings/settings.js'
+import { getSettings_DEPRECATED, getSettingsForSource } from './settings/settings.js'
 import { sleep } from './sleep.js'
 import { jsonParse } from './slowOperations.js'
 import { clearToolSchemaCache } from './toolSchemaCache.js'
@@ -130,8 +118,7 @@ export function isAnthropicAuthEnabled(): boolean {
   const { source: apiKeySource } = getAnthropicApiKeyWithSource({
     skipRetrievingKeyFromApiKeyHelper: true,
   })
-  const hasExternalApiKey =
-    apiKeySource === 'ANTHROPIC_API_KEY' || apiKeySource === 'apiKeyHelper'
+  const hasExternalApiKey = apiKeySource === 'ANTHROPIC_API_KEY' || apiKeySource === 'apiKeyHelper'
 
   // Disable Anthropic auth if:
   // 1. Using 3rd party services (Bedrock/Vertex/Foundry)
@@ -205,11 +192,7 @@ export function getAuthTokenSource() {
   return { source: 'none' as const, hasToken: false }
 }
 
-export type ApiKeySource =
-  | 'ANTHROPIC_API_KEY'
-  | 'apiKeyHelper'
-  | '/login managed key'
-  | 'none'
+export type ApiKeySource = 'ANTHROPIC_API_KEY' | 'apiKeyHelper' | '/login managed key' | 'none'
 
 export function getAnthropicApiKey(): null | string {
   const { key } = getAnthropicApiKeyWithSource()
@@ -224,7 +207,7 @@ export function hasAnthropicApiKeyAuth(): boolean {
 }
 
 export function getAnthropicApiKeyWithSource(
-  opts: { skipRetrievingKeyFromApiKeyHelper?: boolean } = {},
+  opts: { skipRetrievingKeyFromApiKeyHelper?: boolean } = {}
 ): {
   key: null | string
   source: ApiKeySource
@@ -238,9 +221,7 @@ export function getAnthropicApiKeyWithSource(
     }
     if (getConfiguredApiKeyHelper()) {
       return {
-        key: opts.skipRetrievingKeyFromApiKeyHelper
-          ? null
-          : getApiKeyFromApiKeyHelperCached(),
+        key: opts.skipRetrievingKeyFromApiKeyHelper ? null : getApiKeyFromApiKeyHelperCached(),
         source: 'apiKeyHelper',
       }
     }
@@ -249,9 +230,7 @@ export function getAnthropicApiKeyWithSource(
 
   // On homespace, don't use ANTHROPIC_API_KEY (use Console key instead)
   // https://anthropic.slack.com/archives/C08428WSLKV/p1747331773214779
-  const apiKeyEnv = isRunningOnHomespace()
-    ? undefined
-    : process.env.ANTHROPIC_API_KEY
+  const apiKeyEnv = isRunningOnHomespace() ? undefined : process.env.ANTHROPIC_API_KEY
 
   // Always check for direct environment variable when the user ran claude --print.
   // This is useful for CI, etc.
@@ -277,9 +256,7 @@ export function getAnthropicApiKeyWithSource(
       !process.env.CLAUDE_CODE_OAUTH_TOKEN &&
       !process.env.CLAUDE_CODE_OAUTH_TOKEN_FILE_DESCRIPTOR
     ) {
-      throw new Error(
-        'ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN env var is required',
-      )
+      throw new Error('ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN env var is required')
     }
 
     if (apiKeyEnv) {
@@ -298,9 +275,7 @@ export function getAnthropicApiKeyWithSource(
   // Check for ANTHROPIC_API_KEY before checking the apiKeyHelper or /login-managed key
   if (
     apiKeyEnv &&
-    getGlobalConfig().customApiKeyResponses?.approved?.includes(
-      normalizeApiKeyForConfig(apiKeyEnv),
-    )
+    getGlobalConfig().customApiKeyResponses?.approved?.includes(normalizeApiKeyForConfig(apiKeyEnv))
   ) {
     return {
       key: apiKeyEnv,
@@ -372,8 +347,7 @@ function isApiKeyHelperFromProjectOrLocalSettings(): boolean {
   const projectSettings = getSettingsForSource('projectSettings')
   const localSettings = getSettingsForSource('localSettings')
   return (
-    projectSettings?.apiKeyHelper === apiKeyHelper ||
-    localSettings?.apiKeyHelper === apiKeyHelper
+    projectSettings?.apiKeyHelper === apiKeyHelper || localSettings?.apiKeyHelper === apiKeyHelper
   )
 }
 
@@ -442,7 +416,7 @@ export function calculateApiKeyHelperTTL(): number {
     }
     logForDebugging(
       `Found CLAUDE_CODE_API_KEY_HELPER_TTL_MS env var, but it was not a valid number. Got ${envTtl}`,
-      { level: 'error' },
+      { level: 'error' }
     )
   }
 
@@ -467,7 +441,7 @@ export function getApiKeyHelperElapsedMs(): number {
 }
 
 export async function getApiKeyFromApiKeyHelper(
-  isNonInteractiveSession: boolean,
+  isNonInteractiveSession: boolean
 ): Promise<string | null> {
   if (!getConfiguredApiKeyHelper()) return null
   const ttl = calculateApiKeyHelperTTL()
@@ -479,11 +453,7 @@ export async function getApiKeyFromApiKeyHelper(
     // `??=` banned here by eslint no-nullish-assign-object-call (bun bug).
     if (!_apiKeyHelperInflight) {
       _apiKeyHelperInflight = {
-        promise: _runAndCache(
-          isNonInteractiveSession,
-          false,
-          _apiKeyHelperEpoch,
-        ),
+        promise: _runAndCache(isNonInteractiveSession, false, _apiKeyHelperEpoch),
         startedAt: null,
       }
     }
@@ -501,7 +471,7 @@ export async function getApiKeyFromApiKeyHelper(
 async function _runAndCache(
   isNonInteractiveSession: boolean,
   isCold: boolean,
-  epoch: number,
+  epoch: number
 ): Promise<string | null> {
   try {
     const value = await _executeApiKeyHelper(isNonInteractiveSession)
@@ -535,9 +505,7 @@ async function _runAndCache(
   }
 }
 
-async function _executeApiKeyHelper(
-  isNonInteractiveSession: boolean,
-): Promise<string | null> {
+async function _executeApiKeyHelper(isNonInteractiveSession: boolean): Promise<string | null> {
   const apiKeyHelper = getConfiguredApiKeyHelper()
   if (!apiKeyHelper) {
     return null
@@ -547,7 +515,7 @@ async function _executeApiKeyHelper(
     const hasTrust = checkHasTrustDialogAccepted()
     if (!hasTrust && !isNonInteractiveSession) {
       const error = new Error(
-        `Security: apiKeyHelper executed before workspace trust is confirmed. If you see this message, post in ${MACRO.FEEDBACK_CHANNEL}.`,
+        `Security: apiKeyHelper executed before workspace trust is confirmed. If you see this message, post in ${MACRO.FEEDBACK_CHANNEL}.`
       )
       logAntError('apiKeyHelper invoked before trust check', error)
       logEvent('tengu_apiKeyHelper_missing_trust11', {})
@@ -588,15 +556,10 @@ export function clearApiKeyHelperCache(): void {
   _apiKeyHelperInflight = null
 }
 
-export function prefetchApiKeyFromApiKeyHelperIfSafe(
-  isNonInteractiveSession: boolean,
-): void {
+export function prefetchApiKeyFromApiKeyHelperIfSafe(isNonInteractiveSession: boolean): void {
   // Skip if trust not yet accepted — the inner _executeApiKeyHelper check
   // would catch this too, but would fire a false-positive analytics event.
-  if (
-    isApiKeyHelperFromProjectOrLocalSettings() &&
-    !checkHasTrustDialogAccepted()
-  ) {
+  if (isApiKeyHelperFromProjectOrLocalSettings() && !checkHasTrustDialogAccepted()) {
     return
   }
   void getApiKeyFromApiKeyHelper(isNonInteractiveSession)
@@ -622,7 +585,7 @@ async function runAwsAuthRefresh(): Promise<boolean> {
     const hasTrust = checkHasTrustDialogAccepted()
     if (!hasTrust && !getIsNonInteractiveSession()) {
       const error = new Error(
-        `Security: awsAuthRefresh executed before workspace trust is confirmed. If you see this message, post in ${MACRO.FEEDBACK_CHANNEL}.`,
+        `Security: awsAuthRefresh executed before workspace trust is confirmed. If you see this message, post in ${MACRO.FEEDBACK_CHANNEL}.`
       )
       logAntError('awsAuthRefresh invoked before trust check', error)
       logEvent('tengu_awsAuthRefresh_missing_trust', {})
@@ -633,9 +596,7 @@ async function runAwsAuthRefresh(): Promise<boolean> {
   try {
     logForDebugging('Fetching AWS caller identity for AWS auth refresh command')
     await checkStsCallerIdentity()
-    logForDebugging(
-      'Fetched AWS caller identity, skipping AWS auth refresh command',
-    )
+    logForDebugging('Fetched AWS caller identity, skipping AWS auth refresh command')
     return false
   } catch {
     // only actually do the refresh if caller-identity calls
@@ -653,11 +614,11 @@ export function refreshAwsAuth(awsAuthRefresh: string): Promise<boolean> {
   const authStatusManager = AwsAuthStatusManager.getInstance()
   authStatusManager.startAuthentication()
 
-  return new Promise(resolve => {
+  return new Promise((resolve) => {
     const refreshProc = exec(awsAuthRefresh, {
       timeout: AWS_AUTH_REFRESH_TIMEOUT_MS,
     })
-    refreshProc.stdout!.on('data', data => {
+    refreshProc.stdout!.on('data', (data) => {
       const output = data.toString().trim()
       if (output) {
         // Add output to status manager for UI display
@@ -667,7 +628,7 @@ export function refreshAwsAuth(awsAuthRefresh: string): Promise<boolean> {
       }
     })
 
-    refreshProc.stderr!.on('data', data => {
+    refreshProc.stderr!.on('data', (data) => {
       const error = data.toString().trim()
       if (error) {
         authStatusManager.setError(error)
@@ -684,11 +645,9 @@ export function refreshAwsAuth(awsAuthRefresh: string): Promise<boolean> {
         const timedOut = signal === 'SIGTERM'
         const message = timedOut
           ? chalk.red(
-              'AWS auth refresh timed out after 3 minutes. Run your auth command manually in a separate terminal.',
+              'AWS auth refresh timed out after 3 minutes. Run your auth command manually in a separate terminal.'
             )
-          : chalk.red(
-              'Error running awsAuthRefresh (in settings or ~/.claude.json):',
-            )
+          : chalk.red('Error running awsAuthRefresh (in settings or ~/.claude.json):')
         // biome-ignore lint/suspicious/noConsole:: intentional console output
         console.error(message)
         authStatusManager.endAuthentication(false)
@@ -719,7 +678,7 @@ async function getAwsCredsFromCredentialExport(): Promise<{
     const hasTrust = checkHasTrustDialogAccepted()
     if (!hasTrust && !getIsNonInteractiveSession()) {
       const error = new Error(
-        `Security: awsCredentialExport executed before workspace trust is confirmed. If you see this message, post in ${MACRO.FEEDBACK_CHANNEL}.`,
+        `Security: awsCredentialExport executed before workspace trust is confirmed. If you see this message, post in ${MACRO.FEEDBACK_CHANNEL}.`
       )
       logAntError('awsCredentialExport invoked before trust check', error)
       logEvent('tengu_awsCredentialExport_missing_trust', {})
@@ -728,13 +687,9 @@ async function getAwsCredsFromCredentialExport(): Promise<{
   }
 
   try {
-    logForDebugging(
-      'Fetching AWS caller identity for credential export command',
-    )
+    logForDebugging('Fetching AWS caller identity for credential export command')
     await checkStsCallerIdentity()
-    logForDebugging(
-      'Fetched AWS caller identity, skipping AWS credential export command',
-    )
+    logForDebugging('Fetched AWS caller identity, skipping AWS credential export command')
     return null
   } catch {
     // only actually do the export if caller-identity calls
@@ -752,9 +707,7 @@ async function getAwsCredsFromCredentialExport(): Promise<{
       const awsOutput = jsonParse(result.stdout.trim())
 
       if (!isValidAwsStsOutput(awsOutput)) {
-        throw new Error(
-          'awsCredentialExport did not return valid AWS STS output structure',
-        )
+        throw new Error('awsCredentialExport did not return valid AWS STS output structure')
       }
 
       logForDebugging('AWS credentials retrieved from awsCredentialExport')
@@ -765,7 +718,7 @@ async function getAwsCredsFromCredentialExport(): Promise<{
       }
     } catch (e) {
       const message = chalk.red(
-        'Error getting AWS credentials from awsCredentialExport (in settings or ~/.claude.json):',
+        'Error getting AWS credentials from awsCredentialExport (in settings or ~/.claude.json):'
       )
       if (e instanceof Error) {
         // biome-ignore lint/suspicious/noConsole:: intentional console output
@@ -803,7 +756,7 @@ export const refreshAndGetAwsCredentials = memoizeWithTTLAsync(
 
     return credentials
   },
-  DEFAULT_AWS_STS_TTL,
+  DEFAULT_AWS_STS_TTL
 )
 
 export function clearAwsCredentialsCache(): void {
@@ -886,7 +839,7 @@ async function runGcpAuthRefresh(): Promise<boolean> {
     const hasTrust = checkHasTrustDialogAccepted()
     if (!hasTrust && !getIsNonInteractiveSession()) {
       const error = new Error(
-        `Security: gcpAuthRefresh executed before workspace trust is confirmed. If you see this message, post in ${MACRO.FEEDBACK_CHANNEL}.`,
+        `Security: gcpAuthRefresh executed before workspace trust is confirmed. If you see this message, post in ${MACRO.FEEDBACK_CHANNEL}.`
       )
       logAntError('gcpAuthRefresh invoked before trust check', error)
       logEvent('tengu_gcpAuthRefresh_missing_trust', {})
@@ -898,9 +851,7 @@ async function runGcpAuthRefresh(): Promise<boolean> {
     logForDebugging('Checking GCP credentials validity for auth refresh')
     const isValid = await checkGcpCredentialsValid()
     if (isValid) {
-      logForDebugging(
-        'GCP credentials are valid, skipping auth refresh command',
-      )
+      logForDebugging('GCP credentials are valid, skipping auth refresh command')
       return false
     }
   } catch {
@@ -921,11 +872,11 @@ export function refreshGcpAuth(gcpAuthRefresh: string): Promise<boolean> {
   const authStatusManager = AwsAuthStatusManager.getInstance()
   authStatusManager.startAuthentication()
 
-  return new Promise(resolve => {
+  return new Promise((resolve) => {
     const refreshProc = exec(gcpAuthRefresh, {
       timeout: GCP_AUTH_REFRESH_TIMEOUT_MS,
     })
-    refreshProc.stdout!.on('data', data => {
+    refreshProc.stdout!.on('data', (data) => {
       const output = data.toString().trim()
       if (output) {
         // Add output to status manager for UI display
@@ -935,7 +886,7 @@ export function refreshGcpAuth(gcpAuthRefresh: string): Promise<boolean> {
       }
     })
 
-    refreshProc.stderr!.on('data', data => {
+    refreshProc.stderr!.on('data', (data) => {
       const error = data.toString().trim()
       if (error) {
         authStatusManager.setError(error)
@@ -952,11 +903,9 @@ export function refreshGcpAuth(gcpAuthRefresh: string): Promise<boolean> {
         const timedOut = signal === 'SIGTERM'
         const message = timedOut
           ? chalk.red(
-              'GCP auth refresh timed out after 3 minutes. Run your auth command manually in a separate terminal.',
+              'GCP auth refresh timed out after 3 minutes. Run your auth command manually in a separate terminal.'
             )
-          : chalk.red(
-              'Error running gcpAuthRefresh (in settings or ~/.claude.json):',
-            )
+          : chalk.red('Error running gcpAuthRefresh (in settings or ~/.claude.json):')
         // biome-ignore lint/suspicious/noConsole:: intentional console output
         console.error(message)
         authStatusManager.endAuthentication(false)
@@ -971,14 +920,11 @@ export function refreshGcpAuth(gcpAuthRefresh: string): Promise<boolean> {
  * This function checks if credentials are valid and runs the refresh command if not.
  * Memoized with TTL to avoid excessive refresh attempts.
  */
-export const refreshGcpCredentialsIfNeeded = memoizeWithTTLAsync(
-  async (): Promise<boolean> => {
-    // Run auth refresh if needed
-    const refreshed = await runGcpAuthRefresh()
-    return refreshed
-  },
-  DEFAULT_GCP_CREDENTIAL_TTL,
-)
+export const refreshGcpCredentialsIfNeeded = memoizeWithTTLAsync(async (): Promise<boolean> => {
+  // Run auth refresh if needed
+  const refreshed = await runGcpAuthRefresh()
+  return refreshed
+}, DEFAULT_GCP_CREDENTIAL_TTL)
 
 export function clearGcpCredentialsCache(): void {
   refreshGcpCredentialsIfNeeded.cache.clear()
@@ -1030,10 +976,7 @@ export function prefetchAwsCredentialsAndBedRockInfoIfSafe(): void {
   }
 
   // Check if either command is from project settings
-  if (
-    isAwsAuthRefreshFromProjectSettings() ||
-    isAwsCredentialExportFromProjectSettings()
-  ) {
+  if (isAwsAuthRefreshFromProjectSettings() || isAwsCredentialExportFromProjectSettings()) {
     // Only prefetch if trust has already been established
     const hasTrust = checkHasTrustDialogAccepted()
     if (!hasTrust && !getIsNonInteractiveSession()) {
@@ -1066,7 +1009,7 @@ export const getApiKeyFromConfigOrMacOSKeychain = memoize(
         const storageServiceName = getMacOsKeychainStorageServiceName()
         try {
           const result = execSyncWithDefaults_DEPRECATED(
-            `security find-generic-password -a $USER -w -s "${storageServiceName}"`,
+            `security find-generic-password -a $USER -w -s "${storageServiceName}"`
           )
           if (result) {
             return { key: result, source: '/login managed key' }
@@ -1083,7 +1026,7 @@ export const getApiKeyFromConfigOrMacOSKeychain = memoize(
     }
 
     return { key: config.primaryApiKey, source: '/login managed key' }
-  },
+  }
 )
 
 function isValidApiKey(apiKey: string): boolean {
@@ -1094,7 +1037,7 @@ function isValidApiKey(apiKey: string): boolean {
 export async function saveApiKey(apiKey: string): Promise<void> {
   if (!isValidApiKey(apiKey)) {
     throw new Error(
-      'Invalid API key format. API key must contain only alphanumeric characters, dashes, and underscores.',
+      'Invalid API key format. API key must contain only alphanumeric characters, dashes, and underscores.'
     )
   }
 
@@ -1125,9 +1068,7 @@ export async function saveApiKey(apiKey: string): Promise<void> {
     } catch (e) {
       logError(e)
       logEvent('tengu_api_key_keychain_error', {
-        error: errorMessage(
-          e,
-        ) as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+        error: errorMessage(e) as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
       })
       logEvent('tengu_api_key_saved_to_config', {})
     }
@@ -1138,7 +1079,7 @@ export async function saveApiKey(apiKey: string): Promise<void> {
   const normalizedKey = normalizeApiKeyForConfig(apiKey)
 
   // Save config with all updates
-  saveGlobalConfig(current => {
+  saveGlobalConfig((current) => {
     const approved = current.customApiKeyResponses?.approved ?? []
     return {
       ...current,
@@ -1146,9 +1087,7 @@ export async function saveApiKey(apiKey: string): Promise<void> {
       primaryApiKey: savedToKeychain ? current.primaryApiKey : apiKey,
       customApiKeyResponses: {
         ...current.customApiKeyResponses,
-        approved: approved.includes(normalizedKey)
-          ? approved
-          : [...approved, normalizedKey],
+        approved: approved.includes(normalizedKey) ? approved : [...approved, normalizedKey],
         rejected: current.customApiKeyResponses?.rejected ?? [],
       },
     }
@@ -1162,9 +1101,7 @@ export async function saveApiKey(apiKey: string): Promise<void> {
 export function isCustomApiKeyApproved(apiKey: string): boolean {
   const config = getGlobalConfig()
   const normalizedKey = normalizeApiKeyForConfig(apiKey)
-  return (
-    config.customApiKeyResponses?.approved?.includes(normalizedKey) ?? false
-  )
+  return config.customApiKeyResponses?.approved?.includes(normalizedKey) ?? false
 }
 
 export async function removeApiKey(): Promise<void> {
@@ -1172,7 +1109,7 @@ export async function removeApiKey(): Promise<void> {
 
   // Also remove from config instead of returning early, for older clients
   // that set keys before we supported keychain.
-  saveGlobalConfig(current => ({
+  saveGlobalConfig((current) => ({
     ...current,
     primaryApiKey: undefined,
   }))
@@ -1222,10 +1159,8 @@ export function saveOAuthTokensIfNeeded(tokens: OAuthTokens): {
       // Profile fetch in refreshOAuthToken swallows errors and returns null on
       // transient failures (network, 5xx, rate limit). Don't clobber a valid
       // stored subscription with null — fall back to the existing value.
-      subscriptionType:
-        tokens.subscriptionType ?? existingOauth?.subscriptionType ?? null,
-      rateLimitTier:
-        tokens.rateLimitTier ?? existingOauth?.rateLimitTier ?? null,
+      subscriptionType: tokens.subscriptionType ?? existingOauth?.subscriptionType ?? null,
+      rateLimitTier: tokens.rateLimitTier ?? existingOauth?.rateLimitTier ?? null,
     }
 
     const updateStatus = secureStorage.update(storageData)
@@ -1244,9 +1179,7 @@ export function saveOAuthTokensIfNeeded(tokens: OAuthTokens): {
     logError(error)
     logEvent('tengu_oauth_tokens_save_exception', {
       storageBackend,
-      error: errorMessage(
-        error,
-      ) as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+      error: errorMessage(error) as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
     })
     return { success: false, warning: 'Failed to save OAuth tokens' }
   }
@@ -1310,6 +1243,56 @@ export function clearOAuthTokenCache(): void {
   clearKeychainCache()
 }
 
+// ── Codex OAuth token storage ────────────────────────────────────────────────
+// These functions manage OpenAI Codex tokens separately from Anthropic's
+// claudeAiOauth keychain entry. Codex tokens are stored in the GlobalConfig
+// JSON file (not in the system keychain) and are only ever sent to OpenAI's
+// API, never to Anthropic's servers.
+
+/**
+ * Saves the OpenAI Codex OAuth tokens to GlobalConfig.
+ * Does NOT overwrite or interfere with Anthropic's claudeAiOauth block.
+ */
+export function saveCodexOAuthTokens(tokens: CodexTokens): void {
+  saveGlobalConfig((cfg) => ({
+    ...cfg,
+    codexOAuth: {
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      expiresAt: tokens.expiresAt,
+      accountId: tokens.accountId,
+    },
+  }))
+}
+
+/**
+ * Retrieves the stored Codex OAuth tokens from GlobalConfig.
+ * Returns null if no Codex tokens are stored.
+ */
+export function getCodexOAuthTokens(): CodexTokens | null {
+  const cfg = getGlobalConfig()
+  const stored = cfg.codexOAuth
+  if (!stored?.accessToken || !stored.refreshToken || !stored.expiresAt || !stored.accountId) {
+    return null
+  }
+  return {
+    accessToken: stored.accessToken,
+    refreshToken: stored.refreshToken,
+    expiresAt: stored.expiresAt,
+    accountId: stored.accountId,
+  }
+}
+
+/**
+ * Removes Codex OAuth tokens from GlobalConfig (e.g., on logout).
+ */
+export function clearCodexOAuthTokens(): void {
+  saveGlobalConfig((cfg) => {
+    const { codexOAuth: _removed, ...rest } = cfg
+    return rest as typeof cfg
+  })
+}
+
 let lastCredentialsMtimeMs = 0
 
 // Cross-process staleness: another CC instance may write fresh tokens to
@@ -1319,9 +1302,7 @@ let lastCredentialsMtimeMs = 0
 // re-reads — infinite /login regress (CC-1096, GH#24317).
 async function invalidateOAuthCacheIfDiskChanged(): Promise<void> {
   try {
-    const { mtimeMs } = await stat(
-      join(getClaudeConfigHomeDir(), '.credentials.json'),
-    )
+    const { mtimeMs } = await stat(join(getClaudeConfigHomeDir(), '.credentials.json'))
     if (mtimeMs !== lastCredentialsMtimeMs) {
       lastCredentialsMtimeMs = mtimeMs
       clearOAuthTokenCache()
@@ -1357,9 +1338,7 @@ const pending401Handlers = new Map<string, Promise<boolean>>()
  * @param failedAccessToken - The access token that was rejected with 401
  * @returns true if we now have a valid token, false otherwise
  */
-export function handleOAuth401Error(
-  failedAccessToken: string,
-): Promise<boolean> {
+export function handleOAuth401Error(failedAccessToken: string): Promise<boolean> {
   const pending = pending401Handlers.get(failedAccessToken)
   if (pending) return pending
 
@@ -1370,9 +1349,7 @@ export function handleOAuth401Error(
   return promise
 }
 
-async function handleOAuth401ErrorImpl(
-  failedAccessToken: string,
-): Promise<boolean> {
+async function handleOAuth401ErrorImpl(failedAccessToken: string): Promise<boolean> {
   // Clear caches and re-read from keychain (async — sync read blocks ~100ms/call)
   clearOAuthTokenCache()
   const currentTokens = await getClaudeAIOAuthTokensAsync()
@@ -1400,10 +1377,7 @@ export async function getClaudeAIOAuthTokensAsync(): Promise<OAuthTokens | null>
   if (isBareMode()) return null
 
   // Env var and FD tokens are sync and don't hit the keychain
-  if (
-    process.env.CLAUDE_CODE_OAUTH_TOKEN ||
-    getOAuthTokenFromFileDescriptor()
-  ) {
+  if (process.env.CLAUDE_CODE_OAUTH_TOKEN || getOAuthTokenFromFileDescriptor()) {
     return getClaudeAIOAuthTokens()
   }
 
@@ -1424,10 +1398,7 @@ export async function getClaudeAIOAuthTokensAsync(): Promise<OAuthTokens | null>
 // In-flight promise for deduplicating concurrent calls
 let pendingRefreshCheck: Promise<boolean> | null = null
 
-export function checkAndRefreshOAuthTokenIfNeeded(
-  retryCount = 0,
-  force = false,
-): Promise<boolean> {
+export function checkAndRefreshOAuthTokenIfNeeded(retryCount = 0, force = false): Promise<boolean> {
   // Deduplicate concurrent non-retry, non-force calls
   if (retryCount === 0 && !force) {
     if (pendingRefreshCheck) {
@@ -1446,7 +1417,7 @@ export function checkAndRefreshOAuthTokenIfNeeded(
 
 async function checkAndRefreshOAuthTokenIfNeededImpl(
   retryCount: number,
-  force: boolean,
+  force: boolean
 ): Promise<boolean> {
   const MAX_RETRIES = 5
 
@@ -1474,10 +1445,7 @@ async function checkAndRefreshOAuthTokenIfNeededImpl(
   getClaudeAIOAuthTokens.cache?.clear?.()
   clearKeychainCache()
   const freshTokens = await getClaudeAIOAuthTokensAsync()
-  if (
-    !freshTokens?.refreshToken ||
-    !isOAuthTokenExpired(freshTokens.expiresAt)
-  ) {
+  if (!freshTokens?.refreshToken || !isOAuthTokenExpired(freshTokens.expiresAt)) {
     return false
   }
 
@@ -1508,9 +1476,7 @@ async function checkAndRefreshOAuthTokenIfNeededImpl(
     }
     logError(err)
     logEvent('tengu_oauth_token_refresh_lock_error', {
-      error: errorMessage(
-        err,
-      ) as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+      error: errorMessage(err) as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
     })
     return false
   }
@@ -1519,10 +1485,7 @@ async function checkAndRefreshOAuthTokenIfNeededImpl(
     getClaudeAIOAuthTokens.cache?.clear?.()
     clearKeychainCache()
     const lockedTokens = await getClaudeAIOAuthTokensAsync()
-    if (
-      !lockedTokens?.refreshToken ||
-      !isOAuthTokenExpired(lockedTokens.expiresAt)
-    ) {
+    if (!lockedTokens?.refreshToken || !isOAuthTokenExpired(lockedTokens.expiresAt)) {
       logEvent('tengu_oauth_token_refresh_race_resolved', {})
       return false
     }
@@ -1532,9 +1495,7 @@ async function checkAndRefreshOAuthTokenIfNeededImpl(
       // For Claude.ai subscribers, omit scopes so the default
       // CLAUDE_AI_OAUTH_SCOPES applies — this allows scope expansion
       // (e.g. adding user:file_upload) on refresh without re-login.
-      scopes: shouldUseClaudeAIAuth(lockedTokens.scopes)
-        ? undefined
-        : lockedTokens.scopes,
+      scopes: shouldUseClaudeAIAuth(lockedTokens.scopes) ? undefined : lockedTokens.scopes,
     })
     saveOAuthTokensIfNeeded(refreshedTokens)
 
@@ -1569,6 +1530,17 @@ export function isClaudeAISubscriber(): boolean {
   return shouldUseClaudeAIAuth(getClaudeAIOAuthTokens()?.scopes)
 }
 
+export function isCodexSubscriber(): boolean {
+  // Only treat as Codex subscriber when explicitly using OpenAI provider
+  if (getAPIProvider() !== 'openai') {
+    return false
+  }
+
+  // Verify we actually have valid Codex tokens
+  const tokens = getCodexOAuthTokens()
+  return !!tokens?.accessToken
+}
+
 /**
  * Check if the current OAuth token has the user:profile scope.
  *
@@ -1578,9 +1550,7 @@ export function isClaudeAISubscriber(): boolean {
  * generate 403 storms against /api/oauth/profile, bootstrap, etc.
  */
 export function hasProfileScope(): boolean {
-  return (
-    getClaudeAIOAuthTokens()?.scopes?.includes(CLAUDE_AI_PROFILE_SCOPE) ?? false
-  )
+  return getClaudeAIOAuthTokens()?.scopes?.includes(CLAUDE_AI_PROFILE_SCOPE) ?? false
 }
 
 export function is1PApiCustomer(): boolean {
@@ -1685,10 +1655,7 @@ export function isTeamSubscriber(): boolean {
 }
 
 export function isTeamPremiumSubscriber(): boolean {
-  return (
-    getSubscriptionType() === 'team' &&
-    getRateLimitTier() === 'default_claude_max_5x'
-  )
+  return getSubscriptionType() === 'team' && getRateLimitTier() === 'default_claude_max_5x'
 }
 
 export function isEnterpriseSubscriber(): boolean {
@@ -1777,12 +1744,9 @@ export function getOtelHeadersFromHelper(): Record<string, string> {
   // Return cached headers if still valid (debounce)
   const debounceMs = parseInt(
     process.env.CLAUDE_CODE_OTEL_HEADERS_HELPER_DEBOUNCE_MS ||
-      DEFAULT_OTEL_HEADERS_DEBOUNCE_MS.toString(),
+      DEFAULT_OTEL_HEADERS_DEBOUNCE_MS.toString()
   )
-  if (
-    cachedOtelHeaders &&
-    Date.now() - cachedOtelHeadersTimestamp < debounceMs
-  ) {
+  if (cachedOtelHeaders && Date.now() - cachedOtelHeadersTimestamp < debounceMs) {
     return cachedOtelHeaders
   }
 
@@ -1805,21 +1769,15 @@ export function getOtelHeadersFromHelper(): Record<string, string> {
     }
 
     const headers = jsonParse(result)
-    if (
-      typeof headers !== 'object' ||
-      headers === null ||
-      Array.isArray(headers)
-    ) {
-      throw new Error(
-        'otelHeadersHelper must return a JSON object with string key-value pairs',
-      )
+    if (typeof headers !== 'object' || headers === null || Array.isArray(headers)) {
+      throw new Error('otelHeadersHelper must return a JSON object with string key-value pairs')
     }
 
     // Validate all values are strings
     for (const [key, value] of Object.entries(headers)) {
       if (typeof value !== 'string') {
         throw new Error(
-          `otelHeadersHelper returned non-string value for key "${key}": ${typeof value}`,
+          `otelHeadersHelper returned non-string value for key "${key}": ${typeof value}`
         )
       }
     }
@@ -1832,8 +1790,8 @@ export function getOtelHeadersFromHelper(): Record<string, string> {
   } catch (error) {
     logError(
       new Error(
-        `Error getting OpenTelemetry headers from otelHeadersHelper (in settings): ${errorMessage(error)}`,
-      ),
+        `Error getting OpenTelemetry headers from otelHeadersHelper (in settings): ${errorMessage(error)}`
+      )
     )
     throw error
   }
@@ -1845,11 +1803,7 @@ function isConsumerPlan(plan: SubscriptionType): plan is 'max' | 'pro' {
 
 export function isConsumerSubscriber(): boolean {
   const subscriptionType = getSubscriptionType()
-  return (
-    isClaudeAISubscriber() &&
-    subscriptionType !== null &&
-    isConsumerPlan(subscriptionType)
-  )
+  return isClaudeAISubscriber() && subscriptionType !== null && isConsumerPlan(subscriptionType)
 }
 
 export type UserAccountInfo = {
@@ -1884,10 +1838,7 @@ export function getAccountInformation() {
   }
 
   // We don't know the organization if we're relying on an external API key or auth token
-  if (
-    authTokenSource === 'claude.ai' ||
-    apiKeySource === '/login managed key'
-  ) {
+  if (authTokenSource === 'claude.ai' || apiKeySource === '/login managed key') {
     // Get organization name from OAuth account info
     const orgName = getOauthAccountInfo()?.organizationName
     if (orgName) {
@@ -1895,11 +1846,7 @@ export function getAccountInformation() {
     }
   }
   const email = getOauthAccountInfo()?.emailAddress
-  if (
-    (authTokenSource === 'claude.ai' ||
-      apiKeySource === '/login managed key') &&
-    email
-  ) {
+  if ((authTokenSource === 'claude.ai' || apiKeySource === '/login managed key') && email) {
     accountInfo.email = email
   }
   return accountInfo
@@ -1908,9 +1855,7 @@ export function getAccountInformation() {
 /**
  * Result of org validation — either success or a descriptive error.
  */
-export type OrgValidationResult =
-  | { valid: true }
-  | { valid: false; message: string }
+export type OrgValidationResult = { valid: true } | { valid: false; message: string }
 
 /**
  * Validate that the active OAuth token belongs to the organization required
@@ -1932,8 +1877,7 @@ export async function validateForceLoginOrg(): Promise<OrgValidationResult> {
     return { valid: true }
   }
 
-  const requiredOrgUuid =
-    getSettingsForSource('policySettings')?.forceLoginOrgUUID
+  const requiredOrgUuid = getSettingsForSource('policySettings')?.forceLoginOrgUUID
   if (!requiredOrgUuid) {
     return { valid: true }
   }
@@ -1952,8 +1896,7 @@ export async function validateForceLoginOrg(): Promise<OrgValidationResult> {
   // in ~/.claude.json is user-writable and cannot be trusted.
   const { source } = getAuthTokenSource()
   const isEnvVarToken =
-    source === 'CLAUDE_CODE_OAUTH_TOKEN' ||
-    source === 'CLAUDE_CODE_OAUTH_TOKEN_FILE_DESCRIPTOR'
+    source === 'CLAUDE_CODE_OAUTH_TOKEN' || source === 'CLAUDE_CODE_OAUTH_TOKEN_FILE_DESCRIPTOR'
 
   const profile = await getOauthProfileFromOauthToken(tokens.accessToken)
   if (!profile) {
