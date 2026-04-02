@@ -951,6 +951,7 @@ export function REPL({
   const elicitation = useAppState((s) => s.elicitation)
   const ultraplanPendingChoice = useAppState((s) => s.ultraplanPendingChoice)
   const ultraplanLaunchPending = useAppState((s) => s.ultraplanLaunchPending)
+  const ultraplanLocalPrompt = useAppState((s) => s.ultraplanLocalPrompt)
   const viewingAgentTaskId = useAppState((s) => s.viewingAgentTaskId)
   const setAppState = useSetAppState()
 
@@ -1912,6 +1913,26 @@ export function REPL({
       setShowBashesDialog(false)
     }
   }, [ultraplanPendingChoice, showBashesDialog])
+
+  // Process local ultraplan prompt after plan mode is activated.
+  // When CLAUDE_CODE_LOCAL_ULTRAPLAN is set, the prompt is stored in AppState
+  // and needs to be processed by the REPL to start the planning session.
+  // We store it in a ref and process it when the query becomes idle.
+  const ultraplanLocalPromptRef = useRef<string | undefined>(undefined)
+  const processLocalUltraplanRef = useRef(false)
+
+  // Capture prompt from AppState
+  useEffect(() => {
+    if (ultraplanLocalPrompt) {
+      ultraplanLocalPromptRef.current = ultraplanLocalPrompt
+      processLocalUltraplanRef.current = true
+      // Clear the prompt from AppState
+      setAppState((prev) => ({
+        ...prev,
+        ultraplanLocalPrompt: undefined,
+      }))
+    }
+  }, [ultraplanLocalPrompt, setAppState])
   const isTerminalFocused = useTerminalFocus()
   const terminalFocusRef = useRef(isTerminalFocused)
   terminalFocusRef.current = isTerminalFocused
@@ -4833,6 +4854,20 @@ export function REPL({
     hasActiveLocalJsxUI: isShowingLocalJSXCommand,
     queryGuard,
   })
+
+  // Process local ultraplan prompt when query is idle
+  useEffect(() => {
+    if (ultraplanLocalPromptRef.current && !isLoading && processLocalUltraplanRef.current) {
+      const prompt = ultraplanLocalPromptRef.current
+      ultraplanLocalPromptRef.current = undefined
+      processLocalUltraplanRef.current = false
+      // Add the prompt as a user message and trigger a query
+      const userMessage = createUserMessage({ content: prompt })
+      const newAbortController = createAbortController()
+      setAbortController(newAbortController)
+      void onQuery([userMessage], newAbortController, true, [], mainLoopModel)
+    }
+  }, [isLoading, onQuery, mainLoopModel, setAbortController])
 
   // We'll use the global lastInteractionTime from state.ts
 

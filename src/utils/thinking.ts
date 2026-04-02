@@ -1,7 +1,6 @@
 // biome-ignore-all assist/source/organizeImports: ANT-ONLY import markers must not be reordered
 import type { Theme } from './theme.js'
 import { feature } from 'bun:bundle'
-import { getFeatureValue_CACHED_MAY_BE_STALE } from '../services/analytics/growthbook.js'
 import { getCanonicalName } from './model/model.js'
 import { get3PModelCapabilityOverride } from './model/modelSupportOverrides.js'
 import { getAPIProvider } from './model/providers.js'
@@ -13,14 +12,13 @@ export type ThinkingConfig =
   | { type: 'disabled' }
 
 /**
- * Build-time gate (feature) + runtime gate (GrowthBook). The build flag
- * controls code inclusion in external builds; the GB flag controls rollout.
+ * Build-time gate (feature). Modified to work without GrowthBook.
  */
 export function isUltrathinkEnabled(): boolean {
-  if (!feature('ULTRATHINK')) {
-    return false
+  if (feature('ULTRATHINK')) {
+    return true
   }
-  return getFeatureValue_CACHED_MAY_BE_STALE('tengu_turtle_carbon', true)
+  return false
 }
 
 /**
@@ -77,10 +75,7 @@ const RAINBOW_SHIMMER_COLORS: Array<keyof Theme> = [
   'rainbow_violet_shimmer',
 ]
 
-export function getRainbowColor(
-  charIndex: number,
-  shimmer: boolean = false,
-): keyof Theme {
+export function getRainbowColor(charIndex: number, shimmer: boolean = false): keyof Theme {
   const colors = shimmer ? RAINBOW_SHIMMER_COLORS : RAINBOW_COLORS
   return colors[charIndex % colors.length]!
 }
@@ -121,11 +116,7 @@ export function modelSupportsAdaptiveThinking(model: string): boolean {
     return true
   }
   // Exclude any other known legacy models (allowlist above catches 4-6 variants first)
-  if (
-    canonical.includes('opus') ||
-    canonical.includes('sonnet') ||
-    canonical.includes('haiku')
-  ) {
+  if (canonical.includes('opus') || canonical.includes('sonnet') || canonical.includes('haiku')) {
     return false
   }
   // IMPORTANT: Do not change adaptive thinking support without notifying the

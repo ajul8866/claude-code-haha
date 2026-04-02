@@ -19,8 +19,17 @@ import { fetchEnvironments } from '../../teleport/environments.js'
  * Checks if user needs to log in with Claude.ai
  * Extracted from getTeleportErrors() in TeleportError.tsx
  * @returns true if login is required, false otherwise
+ *
+ * When CLAUDE_CODE_LOCAL_ULTRAPLAN is set, bypasses the check and returns false
+ * to enable local-only ultraplan mode without Claude.ai login.
  */
 export async function checkNeedsClaudeAiLogin(): Promise<boolean> {
+  // Local ultraplan mode: bypass login check
+  if (isEnvTruthy(process.env.CLAUDE_CODE_LOCAL_ULTRAPLAN)) {
+    logForDebugging('checkNeedsClaudeAiLogin: bypassing (CLAUDE_CODE_LOCAL_ULTRAPLAN is set)')
+    return false
+  }
+
   if (!isClaudeAISubscriber()) {
     return false
   }
@@ -41,8 +50,17 @@ export async function checkIsGitClean(): Promise<boolean> {
 /**
  * Checks if user has access to at least one remote environment
  * @returns true if user has remote environments, false otherwise
+ *
+ * When CLAUDE_CODE_LOCAL_ULTRAPLAN is set, bypasses the check and returns true
+ * to enable local-only ultraplan mode without cloud environment.
  */
 export async function checkHasRemoteEnvironment(): Promise<boolean> {
+  // Local ultraplan mode: bypass remote environment check
+  if (isEnvTruthy(process.env.CLAUDE_CODE_LOCAL_ULTRAPLAN)) {
+    logForDebugging('checkHasRemoteEnvironment: bypassing (CLAUDE_CODE_LOCAL_ULTRAPLAN is set)')
+    return true
+  }
+
   try {
     const environments = await fetchEnvironments()
     return environments.length > 0
@@ -78,22 +96,18 @@ export async function checkHasGitRemote(): Promise<boolean> {
 export async function checkGithubAppInstalled(
   owner: string,
   repo: string,
-  signal?: AbortSignal,
+  signal?: AbortSignal
 ): Promise<boolean> {
   try {
     const accessToken = getClaudeAIOAuthTokens()?.accessToken
     if (!accessToken) {
-      logForDebugging(
-        'checkGithubAppInstalled: No access token found, assuming app not installed',
-      )
+      logForDebugging('checkGithubAppInstalled: No access token found, assuming app not installed')
       return false
     }
 
     const orgUUID = await getOrganizationUUID()
     if (!orgUUID) {
-      logForDebugging(
-        'checkGithubAppInstalled: No org UUID found, assuming app not installed',
-      )
+      logForDebugging('checkGithubAppInstalled: No org UUID found, assuming app not installed')
       return false
     }
 
@@ -124,21 +138,15 @@ export async function checkGithubAppInstalled(
     if (response.status === 200) {
       if (response.data.status) {
         const installed = response.data.status.app_installed
-        logForDebugging(
-          `GitHub app ${installed ? 'is' : 'is not'} installed on ${owner}/${repo}`,
-        )
+        logForDebugging(`GitHub app ${installed ? 'is' : 'is not'} installed on ${owner}/${repo}`)
         return installed
       }
       // status is null - app is not installed on this repo
-      logForDebugging(
-        `GitHub app is not installed on ${owner}/${repo} (status is null)`,
-      )
+      logForDebugging(`GitHub app is not installed on ${owner}/${repo} (status is null)`)
       return false
     }
 
-    logForDebugging(
-      `checkGithubAppInstalled: Unexpected response status ${response.status}`,
-    )
+    logForDebugging(`checkGithubAppInstalled: Unexpected response status ${response.status}`)
     return false
   } catch (error) {
     // 4XX errors typically mean app is not installed or repo not accessible
@@ -146,7 +154,7 @@ export async function checkGithubAppInstalled(
       const status = error.response?.status
       if (status && status >= 400 && status < 500) {
         logForDebugging(
-          `checkGithubAppInstalled: Got ${status} error, app likely not installed on ${owner}/${repo}`,
+          `checkGithubAppInstalled: Got ${status} error, app likely not installed on ${owner}/${repo}`
         )
         return false
       }
@@ -188,19 +196,16 @@ export async function checkGithubTokenSynced(): Promise<boolean> {
       timeout: 15000,
     })
 
-    const synced =
-      response.status === 200 && response.data?.is_authenticated === true
+    const synced = response.status === 200 && response.data?.is_authenticated === true
     logForDebugging(
-      `GitHub token synced: ${synced} (status=${response.status}, data=${JSON.stringify(response.data)})`,
+      `GitHub token synced: ${synced} (status=${response.status}, data=${JSON.stringify(response.data)})`
     )
     return synced
   } catch (error) {
     if (axios.isAxiosError(error)) {
       const status = error.response?.status
       if (status && status >= 400 && status < 500) {
-        logForDebugging(
-          `checkGithubTokenSynced: Got ${status}, token not synced`,
-        )
+        logForDebugging(`checkGithubTokenSynced: Got ${status}, token not synced`)
         return false
       }
     }
@@ -220,7 +225,7 @@ type RepoAccessMethod = 'github-app' | 'token-sync' | 'none'
  */
 export async function checkRepoForRemoteAccess(
   owner: string,
-  repo: string,
+  repo: string
 ): Promise<{ hasAccess: boolean; method: RepoAccessMethod }> {
   if (await checkGithubAppInstalled(owner, repo)) {
     return { hasAccess: true, method: 'github-app' }

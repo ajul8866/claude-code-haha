@@ -1,5 +1,6 @@
 import { readFileSync } from 'fs'
 import { REMOTE_CONTROL_DISCONNECTED_MSG } from '../bridge/types.js'
+import { handlePlanModeTransition } from '../bootstrap/state.js'
 import type { Command } from '../commands.js'
 import { DIAMOND_OPEN } from '../constants/figures.js'
 import { getRemoteSessionUrl } from '../constants/product.js'
@@ -18,10 +19,13 @@ import {
 } from '../tasks/RemoteAgentTask/RemoteAgentTask.js'
 import type { LocalJSXCommandCall } from '../types/command.js'
 import { logForDebugging } from '../utils/debug.js'
+import { isEnvTruthy } from '../utils/envUtils.js'
 import { errorMessage } from '../utils/errors.js'
 import { logError } from '../utils/log.js'
 import { enqueuePendingNotification } from '../utils/messageQueueManager.js'
 import { ALL_MODEL_CONFIGS } from '../utils/model/configs.js'
+import { applyPermissionUpdate } from '../utils/permissions/PermissionUpdate.js'
+import { prepareContextForPlanMode } from '../utils/permissions/permissionSetup.js'
 import { updateTaskState } from '../utils/task/framework.js'
 import { archiveRemoteSession, teleportToRemote } from '../utils/teleport.js'
 import { pollForApprovedExitPlanMode, UltraplanPollError } from '../utils/ultraplan/ccrSession.js'
@@ -43,6 +47,14 @@ function getUltraplanModel(): string {
     'tengu_ultraplan_model',
     ALL_MODEL_CONFIGS.opus46.firstParty
   )
+}
+
+/**
+ * Check if local ultraplan mode is enabled via environment variable.
+ * When enabled, ultraplan runs locally without requiring cloud environment.
+ */
+function isLocalUltraplanMode(): boolean {
+  return isEnvTruthy(process.env.CLAUDE_CODE_LOCAL_ULTRAPLAN)
 }
 
 // prompt.txt is wrapped in <system-reminder> so the CCR browser hides
@@ -246,6 +258,13 @@ function buildAlreadyActiveMessage(url: string | undefined): string {
 }
 
 /**
+ * Build message for local ultraplan mode (no cloud session).
+ */
+function buildLocalLaunchMessage(): string {
+  return `${DIAMOND_OPEN} ultraplan (local mode)\nStarting local plan mode with Opus model…`
+}
+
+/**
  * Stop a running ultraplan: archive the remote session (halts it but keeps the
  * URL viewable), kill the local task entry (clears the pill), and clear
  * ultraplanSessionUrl (re-arms the keyword trigger). startDetachedPoll's
@@ -291,6 +310,9 @@ export async function stopUltraplan(
  * Resolves immediately with the user-facing message. Eligibility check,
  * session creation, and task registration run detached and failures surface via
  * enqueuePendingNotification.
+ *
+ * When CLAUDE_CODE_LOCAL_ULTRAPLAN is set, runs in local mode without cloud
+ * environment. Activates plan mode with Opus model locally.
  */
 export async function launchUltraplan(opts: {
   blurb: string
@@ -311,6 +333,12 @@ export async function launchUltraplan(opts: {
 }): Promise<string> {
   const { blurb, seedPlan, getAppState, setAppState, signal, disconnectedBridge, onSessionReady } =
     opts
+
+  // Check for local ultraplan mode
+  if (isLocalUltraplanMode()) {
+    return handleLocalUltraplan({ blurb, seedPlan, getAppState, setAppState })
+  }
+
   const { ultraplanSessionUrl: active, ultraplanLaunching } = getAppState()
   if (active || ultraplanLaunching) {
     logEvent('tengu_ultraplan_create_failed', {
@@ -357,6 +385,61 @@ export async function launchUltraplan(opts: {
     onSessionReady,
   })
   return buildLaunchMessage(disconnectedBridge)
+}
+
+/**
+ * Handle local ultraplan mode - activate plan mode with Opus model locally.
+ */
+function handleLocalUltraplan(opts: {
+  blurb: string
+  seedPlan?: string
+  getAppState: () => AppState
+  setAppState: (f: (prev: AppState) => AppState) => void
+}): string {
+  const { blurb, seedPlan, getAppState, setAppState } = opts
+  const appState = getAppState()
+  const currentMode = appState.toolPermissionContext.mode
+
+  // Build the prompt for plan mode
+  const prompt = buildUltraplanPrompt(blurb, seedPlan)
+
+  // If not in plan mode, activate it
+  if (currentMode !== 'plan') {
+    handlePlanModeTransition(currentMode, 'plan')
+    setAppState((prev) => ({
+      ...prev,
+      toolPermissionContext: applyPermissionUpdate(
+        prepareContextForPlanMode(prev.toolPermissionContext),
+        {
+          type: 'setMode',
+          mode: 'plan',
+          destination: 'session',
+        }
+      ),
+      // Store prompt to be processed by REPL after plan mode is activated
+      ultraplanLocalPrompt: prompt,
+    }))
+  } else {
+    // Already in plan mode, just store the prompt
+    setAppState((prev) => ({
+      ...prev,
+      ultraplanLocalPrompt: prompt,
+    }))
+  }
+
+  logEvent('tengu_ultraplan_local_launched', {
+    has_seed_plan: Boolean(seedPlan),
+  })
+
+  // Return message - prompt will be processed by REPL
+  return [
+    `${DIAMOND_OPEN} ultraplan (local mode)`,
+    '',
+    'Plan mode activated with Opus model.',
+    'Cloud environment not available - running locally.',
+    '',
+    'Processing your request...',
+  ].join('\n')
 }
 async function launchDetached(opts: {
   blurb: string
