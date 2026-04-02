@@ -6,3 +6,5 @@ node_modules
 # Caliber local state
 .caliber/
 .claude/
+cli-dev
+cli-dev
