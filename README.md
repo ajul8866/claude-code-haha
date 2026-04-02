@@ -1,56 +1,56 @@
 # Claude Code Haha
 
-<p align="right"><strong>中文</strong> | <a href="./README.en.md">English</a></p>
+<p align="right"><strong>Bahasa Indonesia</strong> | <a href="./README.en.md">English</a> | <a href="./README.md">中文</a></p>
 
-基于 Claude Code 泄露源码修复的**本地可运行版本**，支持接入任意 Anthropic 兼容 API（如 MiniMax、OpenRouter 等）。
+**Versi lokal yang dapat dijalankan** berdasarkan source code Claude Code yang bocor, mendukung API yang kompatibel dengan Anthropic (seperti MiniMax, OpenRouter, dll).
 
-> 原始泄露源码无法直接运行。本仓库修复了启动链路中的多个阻塞问题，使完整的 Ink TUI 交互界面可以在本地工作。
+> Source code asli yang bocor tidak dapat dijalankan langsung. Repository ini memperbaiki beberapa masalah pada startup chain agar TUI Ink lengkap dapat berjalan di lokal.
 
 <p align="center">
-  <img src="docs/00runtime.png" alt="运行截图" width="800">
+  <img src="docs/00runtime.png" alt="Screenshot" width="800">
 </p>
 
-## 功能
+## Fitur
 
-- 完整的 Ink TUI 交互界面（与官方 Claude Code 一致）
-- `--print` 无头模式（脚本/CI 场景）
-- 支持 MCP 服务器、插件、Skills
-- 支持自定义 API 端点和模型
-- 降级 Recovery CLI 模式
+- TUI Ink lengkap (sama dengan Claude Code resmi)
+- Mode `--print` tanpa antarmuka (untuk script/CI)
+- Mendukung MCP server, plugin, dan Skills
+- Mendukung API endpoint dan model kustom
+- Mode CLI Recovery fallback
 
 ---
 
-## 架构概览
+## Arsitektur
 
 <table>
   <tr>
-    <td align="center" width="25%"><img src="docs/01-overall-architecture.png" alt="整体架构"><br><b>整体架构</b></td>
-    <td align="center" width="25%"><img src="docs/02-request-lifecycle.png" alt="请求生命周期"><br><b>请求生命周期</b></td>
-    <td align="center" width="25%"><img src="docs/03-tool-system.png" alt="工具系统"><br><b>工具系统</b></td>
-    <td align="center" width="25%"><img src="docs/04-multi-agent.png" alt="多 Agent 架构"><br><b>多 Agent 架构</b></td>
+    <td align="center" width="25%"><img src="docs/01-overall-architecture.png" alt="Arsitektur Keseluruhan"><br><b>Arsitektur Keseluruhan</b></td>
+    <td align="center" width="25%"><img src="docs/02-request-lifecycle.png" alt="Siklus Request"><br><b>Siklus Request</b></td>
+    <td align="center" width="25%"><img src="docs/03-tool-system.png" alt="Sistem Tool"><br><b>Sistem Tool</b></td>
+    <td align="center" width="25%"><img src="docs/04-multi-agent.png" alt="Arsitektur Multi Agent"><br><b>Arsitektur Multi Agent</b></td>
   </tr>
   <tr>
-    <td align="center" width="25%"><img src="docs/05-terminal-ui.png" alt="终端 UI"><br><b>终端 UI</b></td>
-    <td align="center" width="25%"><img src="docs/06-permission-security.png" alt="权限与安全"><br><b>权限与安全</b></td>
-    <td align="center" width="25%"><img src="docs/07-services-layer.png" alt="服务层"><br><b>服务层</b></td>
-    <td align="center" width="25%"><img src="docs/08-state-data-flow.png" alt="状态与数据流"><br><b>状态与数据流</b></td>
+    <td align="center" width="25%"><img src="docs/05-terminal-ui.png" alt="UI Terminal"><br><b>UI Terminal</b></td>
+    <td align="center" width="25%"><img src="docs/06-permission-security.png" alt="Permission & Security"><br><b>Permission & Security</b></td>
+    <td align="center" width="25%"><img src="docs/07-services-layer.png" alt="Layer Services"><br><b>Layer Services</b></td>
+    <td align="center" width="25%"><img src="docs/08-state-data-flow.png" alt="State & Data Flow"><br><b>State & Data Flow</b></td>
   </tr>
 </table>
 
 ---
 
-## 快速开始
+## Quick Start
 
-### 1. 安装 Bun
+### 1. Install Bun
 
-本项目运行依赖 [Bun](https://bun.sh)。如果你的电脑还没有安装 Bun，可以先执行下面任一方式：
+Project ini membutuhkan [Bun](https://bun.sh). Jika belum terinstall:
 
 ```bash
-# macOS / Linux（官方安装脚本）
+# macOS / Linux (script resmi)
 curl -fsSL https://bun.sh/install | bash
 ```
 
-如果在精简版 Linux 环境里提示 `unzip is required to install bun`，先安装 `unzip`：
+Jika di Linux minimalis muncul pesan `unzip is required to install bun`:
 
 ```bash
 # Ubuntu / Debian
@@ -58,127 +58,125 @@ apt update && apt install -y unzip
 ```
 
 ```bash
-# macOS（Homebrew）
+# macOS (Homebrew)
 brew install bun
 ```
 
 ```powershell
-# Windows（PowerShell）
+# Windows (PowerShell)
 powershell -c "irm bun.sh/install.ps1 | iex"
 ```
 
-安装完成后，重新打开终端并确认：
+Setelah install, buka ulang terminal dan verifikasi:
 
 ```bash
 bun --version
 ```
 
-### 2. 安装项目依赖
+### 2. Install Dependencies
 
 ```bash
 bun install
 ```
 
-### 3. 配置环境变量
+### 3. Konfigurasi Environment Variable
 
-复制示例文件并填入你的 API Key：
+Copy file contoh dan isi API Key:
 
 ```bash
 cp .env.example .env
 ```
 
-编辑 `.env`：
+Edit `.env`:
 
 ```env
-# API 认证（二选一）
-ANTHROPIC_API_KEY=sk-xxx          # 标准 API Key（x-api-key 头）
-ANTHROPIC_AUTH_TOKEN=sk-xxx       # Bearer Token（Authorization 头）
+# Autentikasi API (pilih salah satu)
+ANTHROPIC_API_KEY=sk-xxx          # API Key standar (header x-api-key)
+ANTHROPIC_AUTH_TOKEN=sk-xxx       # Bearer Token (header Authorization)
 
-# API 端点（可选，默认 Anthropic 官方）
+# API Endpoint (opsional, default Anthropic resmi)
 ANTHROPIC_BASE_URL=https://api.minimaxi.com/anthropic
 
-# 模型配置
+# Konfigurasi Model
 ANTHROPIC_MODEL=MiniMax-M2.7-highspeed
 ANTHROPIC_DEFAULT_SONNET_MODEL=MiniMax-M2.7-highspeed
 ANTHROPIC_DEFAULT_HAIKU_MODEL=MiniMax-M2.7-highspeed
 ANTHROPIC_DEFAULT_OPUS_MODEL=MiniMax-M2.7-highspeed
 
-# 超时（毫秒）
+# Timeout (milidetik)
 API_TIMEOUT_MS=3000000
 
-# 禁用遥测和非必要网络请求
+# Nonaktifkan telemetry dan network request non-esensial
 DISABLE_TELEMETRY=1
 CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
 ```
 
-### 4. 启动
+### 4. Jalankan
 
 #### macOS / Linux
 
 ```bash
-# 交互 TUI 模式（完整界面）
+# Mode TUI interaktif (interface lengkap)
 ./bin/claude-haha
 
-# 无头模式（单次问答）
+# Mode print (single query)
 ./bin/claude-haha -p "your prompt here"
 
-# 管道输入
+# Pipe input
 echo "explain this code" | ./bin/claude-haha -p
 
-# 查看所有选项
+# Lihat semua opsi
 ./bin/claude-haha --help
 ```
 
 #### Windows
 
-> **前置要求**：必须安装 [Git for Windows](https://git-scm.com/download/win)（提供 Git Bash，项目内部 Shell 执行依赖它）。
+> **Prasyarat**: Harus install [Git for Windows](https://git-scm.com/download/win) (menyediakan Git Bash).
 
-Windows 下启动脚本 `bin/claude-haha` 是 bash 脚本，无法在 cmd / PowerShell 中直接运行。请使用以下方式：
-
-**方式一：PowerShell / cmd 直接调用 Bun（推荐）**
+**Cara 1: PowerShell / cmd dengan Bun (recommended)**
 
 ```powershell
-# 交互 TUI 模式
+# Mode TUI interaktif
 bun --env-file=.env ./src/entrypoints/cli.tsx
 
-# 无头模式
+# Mode print
 bun --env-file=.env ./src/entrypoints/cli.tsx -p "your prompt here"
 
-# 降级 Recovery CLI
+# Recovery CLI fallback
 bun --env-file=.env ./src/localRecoveryCli.ts
 ```
 
-**方式二：Git Bash 中运行**
+**Cara 2: Git Bash**
 
 ```bash
-# 在 Git Bash 终端中，与 macOS/Linux 用法一致
+# Di terminal Git Bash, sama seperti macOS/Linux
 ./bin/claude-haha
 ```
 
-> **注意**：部分功能（语音输入、Computer Use、Sandbox 隔离等）在 Windows 上不可用，不影响核心 TUI 交互。
+> **Note**: Beberapa fitur (voice input, Computer Use, Sandbox isolation) tidak tersedia di Windows.
 
 ---
 
-## 环境变量说明
+## Environment Variables
 
-| 变量 | 必填 | 说明 |
-|------|------|------|
-| `ANTHROPIC_API_KEY` | 二选一 | API Key，通过 `x-api-key` 头发送 |
-| `ANTHROPIC_AUTH_TOKEN` | 二选一 | Auth Token，通过 `Authorization: Bearer` 头发送 |
-| `ANTHROPIC_BASE_URL` | 否 | 自定义 API 端点，默认 Anthropic 官方 |
-| `ANTHROPIC_MODEL` | 否 | 默认模型 |
-| `ANTHROPIC_DEFAULT_SONNET_MODEL` | 否 | Sonnet 级别模型映射 |
-| `ANTHROPIC_DEFAULT_HAIKU_MODEL` | 否 | Haiku 级别模型映射 |
-| `ANTHROPIC_DEFAULT_OPUS_MODEL` | 否 | Opus 级别模型映射 |
-| `API_TIMEOUT_MS` | 否 | API 请求超时，默认 600000 (10min) |
-| `DISABLE_TELEMETRY` | 否 | 设为 `1` 禁用遥测 |
-| `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` | 否 | 设为 `1` 禁用非必要网络请求 |
+| Variable                                   | Required   | Keterangan                                             |
+| ------------------------------------------ | ---------- | ------------------------------------------------------ |
+| `ANTHROPIC_API_KEY`                        | pilih satu | API Key, dikirim via header `x-api-key`                |
+| `ANTHROPIC_AUTH_TOKEN`                     | pilih satu | Auth Token, dikirim via header `Authorization: Bearer` |
+| `ANTHROPIC_BASE_URL`                       | tidak      | API endpoint kustom, default Anthropic resmi           |
+| `ANTHROPIC_MODEL`                          | tidak      | Model default                                          |
+| `ANTHROPIC_DEFAULT_SONNET_MODEL`           | tidak      | Mapping model level Sonnet                             |
+| `ANTHROPIC_DEFAULT_HAIKU_MODEL`            | tidak      | Mapping model level Haiku                              |
+| `ANTHROPIC_DEFAULT_OPUS_MODEL`             | tidak      | Mapping model level Opus                               |
+| `API_TIMEOUT_MS`                           | tidak      | Timeout request API, default 600000 (10 menit)         |
+| `DISABLE_TELEMETRY`                        | tidak      | Set `1` untuk nonaktifkan telemetry                    |
+| `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` | tidak      | Set `1` untuk nonaktifkan network request non-esensial |
 
 ---
 
-## 降级模式
+## Mode Recovery
 
-如果完整 TUI 出现问题，可以使用简化版 readline 交互模式：
+Jika TUI lengkap bermasalah, gunakan mode readline interaktif yang disederhanakan:
 
 ```bash
 CLAUDE_CODE_FORCE_RECOVERY_CLI=1 ./bin/claude-haha
@@ -186,58 +184,58 @@ CLAUDE_CODE_FORCE_RECOVERY_CLI=1 ./bin/claude-haha
 
 ---
 
-## 相对于原始泄露源码的修复
+## Perbaikan dari Source Code Asli
 
-泄露的源码无法直接运行，主要修复了以下问题：
+Source code yang bocor tidak dapat dijalankan langsung. Perbaikan utama:
 
-| 问题 | 根因 | 修复 |
-|------|------|------|
-| TUI 不启动 | 入口脚本把无参数启动路由到了 recovery CLI | 恢复走 `cli.tsx` 完整入口 |
-| 启动卡死 | `verify` skill 导入缺失的 `.md` 文件，Bun text loader 无限挂起 | 创建 stub `.md` 文件 |
-| `--print` 卡死 | `filePersistence/types.ts` 缺失 | 创建类型桩文件 |
-| `--print` 卡死 | `ultraplan/prompt.txt` 缺失 | 创建资源桩文件 |
-| **Enter 键无响应** | `modifiers-napi` native 包缺失，`isModifierPressed()` 抛异常导致 `handleEnter` 中断，`onSubmit` 永远不执行 | 加 try-catch 容错 |
-| setup 被跳过 | `preload.ts` 自动设置 `LOCAL_RECOVERY=1` 跳过全部初始化 | 移除默认设置 |
+| Masalah                | Penyebab                                                                         | Perbaikan                                |
+| ---------------------- | -------------------------------------------------------------------------------- | ---------------------------------------- |
+| TUI tidak start        | Entry script route startup tanpa parameter ke recovery CLI                       | Restore ke entry point `cli.tsx` lengkap |
+| Startup hang           | `verify` skill import file `.md` yang tidak ada                                  | Buat stub file `.md`                     |
+| `--print` hang         | `filePersistence/types.ts` tidak ada                                             | Buat type stub file                      |
+| `--print` hang         | `ultraplan/prompt.txt` tidak ada                                                 | Buat resource stub file                  |
+| **Enter tidak respon** | package native `modifiers-napi` tidak ada, `isModifierPressed()` throw exception | Tambah try-catch error handling          |
+| Setup di-skip          | `preload.ts` auto-set `LOCAL_RECOVERY=1` skip semua inisialisasi                 | Hapus default setting                    |
 
 ---
 
-## 项目结构
+## Struktur Project
 
 ```
-bin/claude-haha          # 入口脚本
-preload.ts               # Bun preload（设置 MACRO 全局变量）
-.env.example             # 环境变量模板
+bin/claude-haha          # Entry script
+preload.ts               # Bun preload (set MACRO global variables)
+.env.example             # Environment variable template
 src/
-├── entrypoints/cli.tsx  # CLI 主入口
-├── main.tsx             # TUI 主逻辑（Commander.js + React/Ink）
-├── localRecoveryCli.ts  # 降级 Recovery CLI
-├── setup.ts             # 启动初始化
-├── screens/REPL.tsx     # 交互 REPL 界面
-├── ink/                 # Ink 终端渲染引擎
-├── components/          # UI 组件
-├── tools/               # Agent 工具（Bash, Edit, Grep 等）
-├── commands/            # 斜杠命令（/commit, /review 等）
-├── skills/              # Skill 系统
-├── services/            # 服务层（API, MCP, OAuth 等）
+├── entrypoints/cli.tsx  # CLI main entry
+├── main.tsx             # TUI main logic (Commander.js + React/Ink)
+├── localRecoveryCli.ts  # Fallback Recovery CLI
+├── setup.ts             # Startup initialization
+├── screens/REPL.tsx     # Interactive REPL interface
+├── ink/                 # Ink terminal rendering engine
+├── components/          # UI components
+├── tools/               # Agent tools (Bash, Edit, Grep, etc.)
+├── commands/            # Slash commands (/commit, /review, etc.)
+├── skills/              # Skill system
+├── services/            # Services layer (API, MCP, OAuth, etc.)
 ├── hooks/               # React hooks
-└── utils/               # 工具函数
+└── utils/               # Utility functions
 ```
 
 ---
 
-## 技术栈
+## Tech Stack
 
-| 类别 | 技术 |
-|------|------|
-| 运行时 | [Bun](https://bun.sh) |
-| 语言 | TypeScript |
-| 终端 UI | React + [Ink](https://github.com/vadimdemedes/ink) |
-| CLI 解析 | Commander.js |
-| API | Anthropic SDK |
-| 协议 | MCP, LSP |
+| Kategori    | Teknologi                                          |
+| ----------- | -------------------------------------------------- |
+| Runtime     | [Bun](https://bun.sh)                              |
+| Bahasa      | TypeScript                                         |
+| Terminal UI | React + [Ink](https://github.com/vadimdemedes/ink) |
+| CLI Parser  | Commander.js                                       |
+| API         | Anthropic SDK                                      |
+| Protocol    | MCP, LSP                                           |
 
 ---
 
 ## Disclaimer
 
-本仓库基于 2026-03-31 从 Anthropic npm registry 泄露的 Claude Code 源码。所有原始源码版权归 [Anthropic](https://www.anthropic.com) 所有。仅供学习和研究用途。
+Repository ini berdasarkan source code Claude Code yang bocor dari Anthropic npm registry pada 2026-03-31. Semua hak cipta source code asli milik [Anthropic](https://www.anthropic.com). Hanya untuk tujuan pembelajaran dan penelitian.
