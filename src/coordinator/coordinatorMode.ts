@@ -15,6 +15,7 @@ import { TASK_STOP_TOOL_NAME } from '../tools/TaskStopTool/prompt.js'
 import { TEAM_CREATE_TOOL_NAME } from '../tools/TeamCreateTool/constants.js'
 import { TEAM_DELETE_TOOL_NAME } from '../tools/TeamDeleteTool/constants.js'
 import { isEnvTruthy } from '../utils/envUtils.js'
+import { isAbsolute, resolve } from 'path'
 
 // Checks the same gate as isScratchpadEnabled() in
 // utils/permissions/filesystem.ts. Duplicated here because importing
@@ -26,12 +27,14 @@ function isScratchpadGateEnabled(): boolean {
   return checkStatsigFeatureGate_CACHED_MAY_BE_STALE('tengu_scratch')
 }
 
-const INTERNAL_WORKER_TOOLS = new Set([
-  TEAM_CREATE_TOOL_NAME,
-  TEAM_DELETE_TOOL_NAME,
-  SEND_MESSAGE_TOOL_NAME,
-  SYNTHETIC_OUTPUT_TOOL_NAME,
-])
+const INTERNAL_WORKER_TOOLS = Object.freeze(
+  new Set([
+    TEAM_CREATE_TOOL_NAME,
+    TEAM_DELETE_TOOL_NAME,
+    SEND_MESSAGE_TOOL_NAME,
+    SYNTHETIC_OUTPUT_TOOL_NAME,
+  ])
+)
 
 export function isCoordinatorMode(): boolean {
   if (feature('COORDINATOR_MODE')) {
@@ -47,7 +50,7 @@ export function isCoordinatorMode(): boolean {
  * the mode was switched, or undefined if no switch was needed.
  */
 export function matchSessionMode(
-  sessionMode: 'coordinator' | 'normal' | undefined,
+  sessionMode: 'coordinator' | 'normal' | undefined
 ): string | undefined {
   // No stored mode (old session before mode tracking) — do nothing
   if (!sessionMode) {
@@ -77,32 +80,51 @@ export function matchSessionMode(
     : 'Exited coordinator mode to match resumed session.'
 }
 
+/**
+ * Sanitizes a string for safe interpolation into a prompt.
+ * Strips control characters and newlines.
+ */
+function sanitizeForPrompt(value: string): string {
+  return value
+    .replace(/[\r\n\t]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 export function getCoordinatorUserContext(
   mcpClients: ReadonlyArray<{ name: string }>,
-  scratchpadDir?: string,
+  scratchpadDir?: string
 ): { [k: string]: string } {
   if (!isCoordinatorMode()) {
     return {}
   }
 
   const workerTools = isEnvTruthy(process.env.CLAUDE_CODE_SIMPLE)
-    ? [BASH_TOOL_NAME, FILE_READ_TOOL_NAME, FILE_EDIT_TOOL_NAME]
-        .sort()
-        .join(', ')
+    ? [BASH_TOOL_NAME, FILE_READ_TOOL_NAME, FILE_EDIT_TOOL_NAME].sort().join(', ')
     : Array.from(ASYNC_AGENT_ALLOWED_TOOLS)
-        .filter(name => !INTERNAL_WORKER_TOOLS.has(name))
+        .filter((name) => !INTERNAL_WORKER_TOOLS.has(name))
         .sort()
         .join(', ')
 
   let content = `Workers spawned via the ${AGENT_TOOL_NAME} tool have access to these tools: ${workerTools}`
 
   if (mcpClients.length > 0) {
-    const serverNames = mcpClients.map(c => c.name).join(', ')
-    content += `\n\nWorkers also have access to MCP tools from connected MCP servers: ${serverNames}`
+    // Sanitize MCP server names to prevent prompt injection
+    const serverNames = mcpClients
+      .map((c) => sanitizeForPrompt(c.name))
+      .filter(Boolean)
+      .join(', ')
+    if (serverNames) {
+      content += `\n\nWorkers also have access to MCP tools from connected MCP servers: ${serverNames}`
+    }
   }
 
   if (scratchpadDir && isScratchpadGateEnabled()) {
-    content += `\n\nScratchpad directory: ${scratchpadDir}\nWorkers can read and write here without permission prompts. Use this for durable cross-worker knowledge — structure files however fits the work.`
+    // Validate scratchpadDir is an absolute path before interpolation
+    const resolvedDir = resolve(scratchpadDir)
+    if (isAbsolute(resolvedDir)) {
+      content += `\n\nScratchpad directory: ${sanitizeForPrompt(resolvedDir)}\nWorkers can read and write here without permission prompts. Use this for durable cross-worker knowledge — structure files however fits the work.`
+    }
   }
 
   return { workerToolsContext: content }
